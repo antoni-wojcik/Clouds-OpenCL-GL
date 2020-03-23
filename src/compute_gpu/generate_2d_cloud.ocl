@@ -1,0 +1,32 @@
+const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_REPEAT | CLK_FILTER_NEAREST;
+
+void kernel generate(__read_only image2d_t vertices, __read_only image2d_t image_in, __write_only image2d_t image_out, const float blending, const float persistence) {
+
+    int x = get_global_id(0);
+    int y = get_global_id(1);
+    
+    int texture_size = get_image_width(image_in);
+    int nodes = get_image_width(vertices);
+    
+    int grid_size = texture_size/(nodes-2);
+    int2 node_loc = (int2)(x/grid_size+1, y/grid_size+1);
+    
+    float min_dist = 2*grid_size*grid_size;
+    
+    for(int a = -1; a < 2; a++) for(int b = -1; b < 2; b++) {
+        int2 loc = (int2)(node_loc.x+a, node_loc.y+b);
+        uint2 vertex_pixel = read_imageui(vertices, sampler, loc).xy;
+        float2 pixel = (float2)(vertex_pixel.x, vertex_pixel.y);
+        pixel.x += grid_size*(loc.x-1);
+        pixel.y += grid_size*(loc.y-1);
+        float dist = ((float)(x)-pixel.x)*((float)(x)-pixel.x) + ((float)(y)-pixel.y)*((float)(y)-pixel.y);
+        if(dist < min_dist) min_dist = dist;
+    }
+    
+    float brightness;
+    
+    if(blending == 1.0f) brightness = 1.0f-tanh((float)(min_dist/(float)(2*grid_size*grid_size)*persistence));
+    else brightness = blending * (1.0f-tanh((float)(min_dist/(float)(2*grid_size*grid_size)*persistence))) + (1.0f-blending) * read_imagef(image_in, sampler, (int2)(x, y)).x;
+        
+    write_imagef(image_out, (int2)(x, y), (float4)(brightness, 0.0f, 0.0f, 1.0f));
+}
