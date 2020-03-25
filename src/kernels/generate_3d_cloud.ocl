@@ -1,0 +1,103 @@
+const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_REPEAT | CLK_FILTER_NEAREST;
+
+void kernel generate(__read_only image3d_t vertices_ch_0, __read_only image3d_t vertices_ch_1, __read_only image3d_t vertices_ch_2, __read_only image3d_t vertices_ch_3, global const float* persistence, global const float* blending, __read_only image3d_t image_in, __write_only image3d_t image_out) {
+
+    int x = get_global_id(0);
+    int y = get_global_id(1);
+    int z = get_global_id(2);
+    
+    float4 brightness;
+    
+    int texture_size = get_image_width(image_in);
+    
+    // CHANNEL 0
+    int nodes = get_image_width(vertices_ch_0);
+    
+    int grid_size = texture_size/(nodes-2);
+    int3 node_loc = (int3)(x/grid_size+1, y/grid_size+1, z/grid_size+1);
+    
+    int min_dist = 3*grid_size*grid_size;
+    
+    for(int a = -1; a < 2; a++) for(int b = -1; b < 2; b++) for(int c = -1; c < 2; c++){
+        int4 loc = (int4)(node_loc.x+a, node_loc.y+b, node_loc.z+c, 1);
+        uint3 vertex_pixel = read_imageui(vertices_ch_0, sampler, loc).xyz;
+        int3 pixel = (int3)(vertex_pixel.x + grid_size*(loc.x-1), vertex_pixel.y + grid_size*(loc.y-1), vertex_pixel.z + grid_size*(loc.z-1));
+        int dist = (x-pixel.x)*(x-pixel.x) + (y-pixel.y)*(y-pixel.y) + (z-pixel.z)*(z-pixel.z);
+        if(dist < min_dist) min_dist = dist;
+    }
+    
+    brightness.x = 1.0f-tanh((float)((float)min_dist/(float)(3*grid_size*grid_size)*persistence[0]));
+
+    // CHANNEL 1
+    nodes = get_image_width(vertices_ch_1);
+    
+    grid_size = texture_size/(nodes-2);
+    node_loc = (int3)(x/grid_size+1, y/grid_size+1, z/grid_size+1);
+    
+    min_dist = 3*grid_size*grid_size;
+    
+    for(int a = -1; a < 2; a++) for(int b = -1; b < 2; b++) for(int c = -1; c < 2; c++){
+        int4 loc = (int4)(node_loc.x+a, node_loc.y+b, node_loc.z+c, 1);
+        uint3 vertex_pixel = read_imageui(vertices_ch_1, sampler, loc).xyz;
+        int3 pixel = (int3)(vertex_pixel.x + grid_size*(loc.x-1), vertex_pixel.y + grid_size*(loc.y-1), vertex_pixel.z + grid_size*(loc.z-1));
+        int dist = (x-pixel.x)*(x-pixel.x) + (y-pixel.y)*(y-pixel.y) + (z-pixel.z)*(z-pixel.z);
+        if(dist < min_dist) min_dist = dist;
+    }
+    
+    brightness.y = 1.0f-tanh((float)((float)min_dist/(float)(3*grid_size*grid_size)*persistence[1]));
+    
+    // CHANNEL 2
+    nodes = get_image_width(vertices_ch_2);
+    
+    grid_size = texture_size/(nodes-2);
+    node_loc = (int3)(x/grid_size+1, y/grid_size+1, z/grid_size+1);
+    
+    min_dist = 3*grid_size*grid_size;
+    
+    for(int a = -1; a < 2; a++) for(int b = -1; b < 2; b++) for(int c = -1; c < 2; c++){
+        int4 loc = (int4)(node_loc.x+a, node_loc.y+b, node_loc.z+c, 1);
+        uint3 vertex_pixel = read_imageui(vertices_ch_2, sampler, loc).xyz;
+        int3 pixel = (int3)(vertex_pixel.x + grid_size*(loc.x-1), vertex_pixel.y + grid_size*(loc.y-1), vertex_pixel.z + grid_size*(loc.z-1));
+        int dist = (x-pixel.x)*(x-pixel.x) + (y-pixel.y)*(y-pixel.y) + (z-pixel.z)*(z-pixel.z);
+        if(dist < min_dist) min_dist = dist;
+    }
+    
+    brightness.z = 1.0f-tanh((float)((float)min_dist/(float)(3*grid_size*grid_size)*persistence[2]));
+    
+    // CHANNEL 3
+    nodes = get_image_width(vertices_ch_3);
+    
+    grid_size = texture_size/(nodes-2);
+    node_loc = (int3)(x/grid_size+1, y/grid_size+1, z/grid_size+1);
+    
+    min_dist = 3*grid_size*grid_size;
+    
+    for(int a = -1; a < 2; a++) for(int b = -1; b < 2; b++) for(int c = -1; c < 2; c++){
+        int4 loc = (int4)(node_loc.x+a, node_loc.y+b, node_loc.z+c, 1);
+        uint3 vertex_pixel = read_imageui(vertices_ch_3, sampler, loc).xyz;
+        int3 pixel = (int3)(vertex_pixel.x + grid_size*(loc.x-1), vertex_pixel.y + grid_size*(loc.y-1), vertex_pixel.z + grid_size*(loc.z-1));
+        int dist = (x-pixel.x)*(x-pixel.x) + (y-pixel.y)*(y-pixel.y) + (z-pixel.z)*(z-pixel.z);
+        if(dist < min_dist) min_dist = dist;
+    }
+    
+    brightness.w = 1.0f-tanh((float)((float)min_dist/(float)(3*grid_size*grid_size)*persistence[3]));
+    
+    // BLENDING
+    
+    if(blending[0] < 1.0f) brightness.x = blending[0] * brightness.x + (1.0f-blending[0]) * read_imagef(image_in, sampler, (int4)(x, y, z, 1)).x;
+    if(blending[1] < 1.0f) brightness.y = blending[1] * brightness.y + (1.0f-blending[1]) * read_imagef(image_in, sampler, (int4)(x, y, z, 1)).y;
+    if(blending[2] < 1.0f) brightness.z = blending[2] * brightness.z + (1.0f-blending[2]) * read_imagef(image_in, sampler, (int4)(x, y, z, 1)).z;
+    if(blending[3] < 1.0f) brightness.w = blending[3] * brightness.w + (1.0f-blending[3]) * read_imagef(image_in, sampler, (int4)(x, y, z, 1)).w;
+    
+    /*
+     if(blending[0] < 1.0f) brightness.x = mix(brightness.x, read_imagef(image_in, sampler, (int4)(x, y, z, 1)).x, blending[0]);
+     if(blending[1] < 1.0f) brightness.y = mix(brightness.y, read_imagef(image_in, sampler, (int4)(x, y, z, 1)).y, blending[1]);
+     if(blending[2] < 1.0f) brightness.z = mix(brightness.y, read_imagef(image_in, sampler, (int4)(x, y, z, 1)).z, blending[2]);
+     if(blending[3] < 1.0f) brightness.w = mix(brightness.z, read_imagef(image_in, sampler, (int4)(x, y, z, 1)).w, blending[3]);
+     */
+    
+    
+    // OUTPUT
+        
+    write_imagef(image_out, (int4)(x, y, z, 1), brightness);
+}
