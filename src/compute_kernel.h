@@ -48,7 +48,7 @@ private:
         {0.1f, 0.1f, 0.1f, 0.1f}
     };
     
-    unsigned int cloudTextureID;
+    cl_GLuint cloud_texture_ID;
     
     struct pos{
         int x, y, z;
@@ -78,15 +78,15 @@ private:
         return compute_code;
     }
     
-    void generateGLTexture(Shader& shader, float* image_result) {
+    void generateGLTexture(Shader& shader) {
         
         glEnable(GL_TEXTURE_3D);
         
-        glGenTextures(1, &cloudTextureID);
+        glGenTextures(1, &cloud_texture_ID);
         
-        glBindTexture(GL_TEXTURE_3D, cloudTextureID);
+        glBindTexture(GL_TEXTURE_3D, cloud_texture_ID);
         
-        //glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
         
         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_REPEAT); //GL_CLAMP_TO_EDGE or GL_REPEAT
         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -94,18 +94,16 @@ private:
         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); //USE NEAREST TO SPEED UP
         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         
-        if(!image_result) std::cerr << "ERROR: NO CLOUD DATA GENERATED" << std::endl;
-        
-        glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, size, size, size, 0, GL_RGBA, GL_FLOAT, image_result);
+        glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, size, size, size, 0, GL_RGBA, GL_FLOAT, NULL);
         
         glActiveTexture(GL_TEXTURE0);
         glUniform1i(glGetUniformLocation(shader.ID, "density_sampler"), 0);
+        
+        glFinish();
     }
     
 public:
     Clouds(Shader& shader) {
-        float* image_result = new float[size*size*size*CHANNELS];
-        
         try {
             cl::Device device;
             std::vector<cl::Platform> platforms;
@@ -123,7 +121,24 @@ public:
             
             std::cout << "SUCCESS: OpenCL: USING A DEVICE: " << device.getInfo<CL_DEVICE_NAME>() << std::endl;
             
-            cl::Context context({device});
+            // OpenCl - OpenGL interop
+            // https://stackoverflow.com/questions/26802905/getting-opengl-buffers-using-opencl
+            
+            CGLContextObj CGLGetCurrentContext(void);
+            CGLShareGroupObj CGLGetShareGroup(CGLContextObj);
+
+            CGLContextObj kCGLContext = CGLGetCurrentContext();
+            CGLShareGroupObj kCGLShareGroup = CGLGetShareGroup(kCGLContext);
+
+            cl_context_properties properties[] = {
+              CL_CONTEXT_PROPERTY_USE_CGL_SHAREGROUP_APPLE,
+              (cl_context_properties) kCGLShareGroup,
+              0
+            };
+            
+            // https://stackoverflow.com/questions/22928704/opencl-opengl-interop-using-clcreatefromgltexture-fails-to-draw-to-texture-text
+            
+            cl::Context context(device, properties);
             cl::Program::Sources sources;
             std::string kernel_code = loadSource("src/kernels/generate_3d_cloud.ocl");
             sources.push_back({kernel_code.c_str(), kernel_code.length()});
@@ -138,9 +153,12 @@ public:
             std::random_device dev;
             std::mt19937 rng(dev()); //random number generator
             
+            generateGLTexture(shader);
             
-            cl::ImageFormat image_format(CL_RGBA, CL_FLOAT);
-            cl::Image3D image(context, CL_MEM_READ_WRITE, image_format, size, size, size);
+            cl::ImageGL image(context, CL_MEM_READ_WRITE, GL_TEXTURE_3D, 0, cloud_texture_ID);
+            
+            //cl::ImageFormat image_format(CL_RGBA, CL_FLOAT);
+            //cl::Image3D image(context, CL_MEM_READ_WRITE, image_format, size, size, size);
             
             cl::ImageFormat image_in_format(CL_RGBA, CL_UNSIGNED_INT32);
             cl::Image3D vertices_image[4];
@@ -218,7 +236,8 @@ public:
                     
                 queue.enqueueNDRangeKernel(generate, cl::NullRange, cl::NDRange(size_t(size), size_t(size), size_t(size)), cl::NullRange);
                     
-                if(m == ITERATIONS-1) queue.enqueueReadImage(image, CL_TRUE, {0, 0, 0}, {size_t(size), size_t(size), size_t(size)}, 0, 0, image_result);
+                // no need to do it as the GPU memory is shared between OpenCL and OpenGL now
+                //if(m == ITERATIONS-1) queue.enqueueReadImage(image, CL_TRUE, {0, 0, 0}, {size_t(size), size_t(size), size_t(size)}, 0, 0, image_result);
 
                 queue.finish();
                 
@@ -232,17 +251,13 @@ public:
             std::cerr << "ERROR: OpenCL: OTHER: " << e.what() << ": " << e.err() << std::endl;
             if(e.err() == -11) {
                 std::cerr << "COMPILATION ERROR, CHECK THE SYNTAX\nUSE:\nhttps://streamhpc.com/blog/2013-05-13/verify-your-opencl-kernel-online/\nTO FIND ERRORS" << std::endl;
-            } else std::cerr << "USE:\nhttps://www.khronos.org/registry/OpenCL/sdk/1.2/docs/man/xhtml/scalarDataTypes.html\nTO VERIFY ERROR TYPE" << std::endl;
+            } else std::cerr << "USE:\nhttps://streamhpc.com/blog/2013-04-28/opencl-error-codes\nTO VERIFY ERROR TYPE" << std::endl;
             exit(-1);
         }
-        
-        generateGLTexture(shader, image_result);
-        
-        delete [] image_result;
     }
     
     void transferData() {
-        glBindTexture(GL_TEXTURE_3D, cloudTextureID);
+        glBindTexture(GL_TEXTURE_3D, cloud_texture_ID);
     }
     
 };
