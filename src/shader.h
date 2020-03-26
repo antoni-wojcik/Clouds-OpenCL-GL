@@ -7,7 +7,7 @@
 #ifndef shader_h
 #define shader_h
 
-#include <glad/glad.h>
+#include <GL/glew.h>
 #include "glm.hpp"
 
 #include <string>

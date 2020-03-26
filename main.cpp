@@ -7,14 +7,17 @@
 //
 
 #define RETINA
-#define SCR_WIDTH 900
-#define SCR_HEIGHT 900
+#define PROCESSING_UNIT 1 // 1 - AMD GRAPHCIS CARD
+#define SCR_WIDTH 400
+#define SCR_HEIGHT 400
 
 #include <iostream>
 
 // include OpenGL libraries
-#include <glad/glad.h>
+#include <GL/glew.h>
+#define GLFW_COCOA_GRAPHICS_SWITCHING 0x00023003
 #include <GLFW/glfw3.h>
+#include <OpenGL/OpenGL.h>
 #include "glm.hpp"
 #include "gtc/matrix_transform.hpp"
 #include "gtc/type_ptr.hpp"
@@ -68,7 +71,28 @@ int fps_steps_counter = 0;
 bool taking_screenshot = false;
 
 //camera
-Camera camera(60.0f, glm::vec3(0, 0, -2));
+Camera camera(60.0f, glm::vec3(0.5, 0.5, -2));
+
+void processTime(float time) {
+    delta_time = time - last_frame_time;
+    last_frame_time = time;
+    if(fps_steps_counter == fps_steps) {
+        fps_steps_counter = 0;
+        fps_sum = 0;
+    }
+    fps_sum += delta_time;
+    fps_steps_counter++;
+}
+
+struct GLRendererInfo {
+  GLint rendererID;       // RendererID number
+  GLint accelerated;      // Whether Hardware accelerated
+  GLint online;           // Whether renderer (/GPU) is onilne. Second GPU on Mac Pro is offline
+  GLint virtualScreen;    // Virtual screen number
+  GLint videoMemoryMB;
+  GLint textureMemoryMB;
+  const GLubyte *vendor;
+};
 
 
 int main(int argc, const char* argv[]) {
@@ -78,7 +102,10 @@ int main(int argc, const char* argv[]) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-    glfwWindowHint(GLFW_SAMPLES, 4);
+    glfwWindowHint(GLFW_SAMPLES, 0);
+    #ifdef __APPLE__
+    glfwWindowHint(GLFW_COCOA_GRAPHICS_SWITCHING, GL_TRUE);
+    #endif
     
     #ifdef RETINA
     GLFWwindow* window = glfwCreateWindow(scr_width/2, scr_height/2, "Clouds", NULL, NULL);
@@ -90,7 +117,33 @@ int main(int argc, const char* argv[]) {
         glfwTerminate();
         return -1;
     }
+    
     glfwMakeContextCurrent(window);
+    
+    #ifdef __APPLE__
+    // Grab the GLFW context and pixel format for future calls
+    CGLContextObj contextObject = CGLGetCurrentContext();
+    CGLRendererInfoObj rend;
+    GLint nRenderers = 0;
+    CGLQueryRendererInfo(0xffffffff, &rend, &nRenderers);
+    
+    GLRendererInfo renderer;
+    CGLDescribeRenderer(rend, PROCESSING_UNIT, kCGLRPOnline, &(renderer.online));
+    CGLDescribeRenderer(rend, PROCESSING_UNIT, kCGLRPAcceleratedCompute, &(renderer.accelerated));
+    CGLDescribeRenderer(rend, PROCESSING_UNIT, kCGLRPRendererID,  &(renderer.rendererID));
+    CGLDescribeRenderer(rend, PROCESSING_UNIT, kCGLRPVideoMemoryMegabytes, &(renderer.videoMemoryMB));
+    CGLDescribeRenderer(rend, PROCESSING_UNIT, kCGLRPTextureMemoryMegabytes, &(renderer.textureMemoryMB));
+
+    CGLSetVirtualScreen(contextObject, PROCESSING_UNIT-1); //https://gist.github.com/dbarnes/94ded353e16a579ba3da52d2c6261173
+    
+    GLint r;
+    CGLGetParameter(contextObject, kCGLCPCurrentRendererID, &r);
+    renderer.vendor = glGetString(GL_VENDOR);
+    
+    std::cout << "SUCCESS: OpenGL: USING A DEVICE: Vendor: " << renderer.vendor << ", Video Memory MB: " << renderer.videoMemoryMB << " Texture Memory MB: " << renderer.textureMemoryMB << "\n";
+    
+    (void)glGetError();
+    #endif
     
     // set the viewport size and apply changes every time it is changed by a user
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
@@ -101,17 +154,20 @@ int main(int argc, const char* argv[]) {
     // tell GLFW to capture the mouse
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     
-    // initalize GLAD
-    if(!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        std::cout << "ERROR: OpenGL: Failed to initialize GLAD" << std::endl;
+    // initialise GLEW
+    if(glewInit() != GLEW_OK) {
+        std::cerr << "ERROR: OpenGL: Failed to initialize GLEW" << std::endl;
+        glGetError();
         return -1;
     }
     
-    Shader shader("src/shaders/screen.vs", "src/shaders/clouds.fs");
+    Shader shader("src/shaders/screen.vs", "src/shaders/clouds_fast.fs");
     
     Screen screen;
     
     Clouds clouds(shader);
+
+    clouds.transferData();
     
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -122,20 +178,11 @@ int main(int argc, const char* argv[]) {
         #endif
         
         float currentFrameTime = glfwGetTime();
-        delta_time = currentFrameTime - last_frame_time;
-        last_frame_time = currentFrameTime;
-        if(fps_steps_counter == fps_steps) {
-            fps_steps_counter = 0;
-            fps_sum = 0;
-        }
-        fps_sum += delta_time;
-        fps_steps_counter++;
+        processTime(currentFrameTime);
         
         processInput(window);
         
         camera.transferData(shader);
-
-        clouds.transferData();
         
         shader.setFloat("time", currentFrameTime);
         
