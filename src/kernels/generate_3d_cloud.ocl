@@ -1,6 +1,6 @@
 const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_REPEAT | CLK_FILTER_NEAREST;
 
-void kernel generate(__read_only image3d_t vertices_ch_0, __read_only image3d_t vertices_ch_1, __read_only image3d_t vertices_ch_2, __read_only image3d_t vertices_ch_3, global const float* persistence, global const float* blending, __read_only image3d_t image_in, __write_only image3d_t image_out) {
+void kernel generate_channels(__read_only image3d_t vertices_ch_0, __read_only image3d_t vertices_ch_1, __read_only image3d_t vertices_ch_2, __read_only image3d_t vertices_ch_3, global const float* persistence, global const float* blending, __read_only image3d_t image_in, __write_only image3d_t image_out) {
 
     int x = get_global_id(0);
     int y = get_global_id(1);
@@ -100,4 +100,14 @@ void kernel generate(__read_only image3d_t vertices_ch_0, __read_only image3d_t 
     // OUTPUT
         
     write_imagef(image_out, (int4)(x, y, z, 1), brightness);
+}
+
+
+
+void kernel generate_density(__read_only image3d_t image_in, __write_only image3d_t image_out) {
+    int x = get_global_id(0);
+    int y = get_global_id(1);
+    int z = get_global_id(2);
+    
+    write_imagef(image_out, (int4)(x, y, z, 1), read_imagef(image_in, sampler, (int4)(x, y, z, 1)));
 }

@@ -73,11 +73,13 @@ private:
             compute_file.close();
             compute_code = compute_stream.str();
         } catch(std::ifstream::failure e) {
-            std::cerr << "ERROR: OpenCL KERNEL: CANNOT READ COMPUTE CODE" << std::endl;
+            std::cerr << "ERROR: OpenCL KERNEL: CANNOT READ KERNEL CODE" << std::endl;
             exit(-1); //stop executing the program with the error code -1;
         }
         return compute_code;
     }
+    
+    // FOR NOW JUST SEND DATA IN THE RED CHANNEL
     
     void generateGLTexture(Shader& shader) {
         
@@ -101,6 +103,31 @@ private:
         
         glFinish();
     }
+    
+    /* FOR RGBA USE THIS CODE
+     void generateGLTexture(Shader& shader) {
+         
+         glEnable(GL_TEXTURE_3D);
+         
+         glGenTextures(1, &cloud_texture_ID);
+         
+         glBindTexture(GL_TEXTURE_3D, cloud_texture_ID);
+         
+         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+         
+         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_REPEAT); //GL_CLAMP_TO_EDGE or GL_REPEAT
+         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_REPEAT);
+         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); //USE NEAREST TO SPEED UP
+         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+         
+         glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, size, size, size, 0, GL_RGBA, GL_FLOAT, NULL);
+         
+         texture_loc = glGetUniformLocation(shader.ID, "density_sampler");
+         
+         glFinish();
+     }
+     */
     
 public:
     Clouds(Shader& shader) {
@@ -144,8 +171,7 @@ public:
             sources.push_back({kernel_code.c_str(), kernel_code.length()});
             
             cl::Program computing_program(context, sources);
-            if (computing_program.build({device}) != CL_SUCCESS)
-            {
+            if (computing_program.build({device}) != CL_SUCCESS) {
                 std::cout << "ERROR: OpenCL: CANNOT BUILD PROGRAM " << computing_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
                 exit(-1);
             }
@@ -153,17 +179,17 @@ public:
             std::random_device dev;
             std::mt19937 rng(dev()); //random number generator
             
-            generateGLTexture(shader);
+            // PREPARE THE CHANNEL DATA IMAGE
             
-            cl::ImageGL image(context, CL_MEM_READ_WRITE, GL_TEXTURE_3D, 0, cloud_texture_ID);
+            cl::ImageFormat image_format(CL_RGBA, CL_FLOAT);
+            cl::Image3D cloud_3D_data(context, CL_MEM_READ_WRITE, image_format, size, size, size);
             
-            //cl::ImageFormat image_format(CL_RGBA, CL_FLOAT);
-            //cl::Image3D image(context, CL_MEM_READ_WRITE, image_format, size, size, size);
+            // CALCULATE CHANNEL DATA
             
             cl::ImageFormat image_in_format(CL_RGBA, CL_UNSIGNED_INT32);
             cl::Image3D vertices_image[4];
             
-            cl::Kernel generate(computing_program, "generate");
+            cl::Kernel generate_channels(computing_program, "generate_channels");
             
             for(int m = 0; m < ITERATIONS; m++) {
                 cl::CommandQueue queue(context, device);
@@ -219,7 +245,7 @@ public:
                     delete [] v;
                     
                     vertices_image[k] = cl::Image3D(context, CL_MEM_READ_ONLY, image_in_format, nodes_rep, nodes_rep, nodes_rep);
-                    generate.setArg(k, vertices_image[k]);
+                    generate_channels.setArg(k, vertices_image[k]);
                     queue.enqueueWriteImage(vertices_image[k], CL_TRUE, {0, 0, 0}, {size_t(nodes_rep), size_t(nodes_rep), size_t(nodes_rep)}, 0, 0, vertices[k]);
                 }
                 
@@ -231,21 +257,37 @@ public:
                 cl::Buffer persistence_buff(context, CL_MEM_READ_ONLY, sizeof(cl_float)*CHANNELS);
                 cl::Buffer blending_buff(context, CL_MEM_READ_ONLY, sizeof(cl_float)*CHANNELS);
                     
-                generate.setArg(CHANNELS, persistence_buff);
-                generate.setArg(CHANNELS+1, blending_buff);
-                generate.setArg(CHANNELS+2, image);
-                generate.setArg(CHANNELS+3, image);
+                generate_channels.setArg(CHANNELS, persistence_buff);
+                generate_channels.setArg(CHANNELS+1, blending_buff);
+                generate_channels.setArg(CHANNELS+2, cloud_3D_data);
+                generate_channels.setArg(CHANNELS+3, cloud_3D_data);
                     
                 queue.enqueueWriteBuffer(persistence_buff, CL_TRUE, 0, sizeof(cl_float)*CHANNELS, persistence[m]);
                 queue.enqueueWriteBuffer(blending_buff, CL_TRUE, 0, sizeof(cl_float)*CHANNELS, blending[m]);
                     
-                queue.enqueueNDRangeKernel(generate, cl::NullRange, cl::NDRange(size_t(size), size_t(size), size_t(size)), cl::NullRange);
+                queue.enqueueNDRangeKernel(generate_channels, cl::NullRange, cl::NDRange(size_t(size), size_t(size), size_t(size)), cl::NullRange);
                     
                 // no need to do it as the GPU memory is shared between OpenCL and OpenGL now
-                //if(m == ITERATIONS-1) queue.enqueueReadImage(image, CL_TRUE, {0, 0, 0}, {size_t(size), size_t(size), size_t(size)}, 0, 0, image_result);
-
+                //if(m == ITERATIONS-1) queue.enqueueReadImage(cloud_3D_data, CL_TRUE, {0, 0, 0}, {size_t(size), size_t(size), size_t(size)}, 0, 0, image_result);
+                
                 queue.finish();
             }
+            
+            
+            // CALCULATE DENSITY AND LIGHT DATA
+            
+            generateGLTexture(shader);
+            cl::ImageGL image(context, CL_MEM_READ_WRITE, GL_TEXTURE_3D, 0, cloud_texture_ID);
+            
+            cl::Kernel generate_density(computing_program, "generate_density");
+            
+            cl::CommandQueue queue(context, device);
+            
+            generate_density.setArg(0, cloud_3D_data);
+            generate_density.setArg(1, image);
+            queue.enqueueNDRangeKernel(generate_density, cl::NullRange, cl::NDRange(size_t(size), size_t(size), size_t(size)), cl::NullRange);
+            
+            queue.finish();
             
         } catch(cl::Error e) {
             std::cerr << "ERROR: OpenCL: OTHER: " << e.what() << ": " << e.err() << std::endl;
