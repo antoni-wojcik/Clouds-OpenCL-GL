@@ -1,7 +1,7 @@
 #version 410 core
 
-#define SAMPLES 50
-#define SAMPLE_SEP 0.1f
+#define SAMPLES_MAX 500
+#define SAMPLE_SEP 0.003f
 #define LIGHT_SAMPLES 10
 #define SIZE 1.0f
 #define LIGHT_ABSORBTION 10.0f
@@ -20,10 +20,10 @@ uniform sampler3D sam;
 uniform float time;
 
 const vec3 box_origin = vec3(0, 0, 0);
-const vec3 box_end = vec3(SIZE*10, SIZE, SIZE*10);
+const vec3 box_end = vec3(SIZE, SIZE, SIZE);
 const float SIZE_INV = 1.0f/SIZE;
 
-const vec3 light_dir = normalize(vec3(0.01, 1, 0.01));
+const vec3 light_dir = normalize(vec3(1, 1, 0.01));
 const vec3 light_col = vec3(1.0f, 1.0f, 1.0f);
 
 //using Ray structs will allow for shadows and reflections
@@ -72,17 +72,15 @@ float distInBox(inout Ray r) {
     return dist_inside_box;
 }
 
-float sampleDensity(in vec4 data_point, float sub_dist) {
-    //return sub_dist;
+float sampleDensity(float data_point, float sub_dist) {
     float dens = 0;
-    if(data_point.x > 0.35f) {
-        dens = data_point.x;
+    if(data_point > 0.35f) {
+        dens = data_point;
     }
     return dens * sub_dist * SIZE_INV;
 }
 
 float calcLight(in vec3 start) {
-    //return 1;
     Ray r_light = genLightRay(start);
     
     float dist_edge = distInBox(r_light);
@@ -92,7 +90,7 @@ float calcLight(in vec3 start) {
     float sub_dist = dist_edge/LIGHT_SAMPLES;
     
     for(int i = 0; i < LIGHT_SAMPLES; i++) {
-        vec4 data_point = texture(sam, currentRayPoint(r_light) * SIZE_INV);
+        float data_point = texture(sam, currentRayPoint(r_light) * SIZE_INV).r;
         dens_tot += sampleDensity(data_point, sub_dist);
         
         r_light.param += sub_dist;
@@ -107,14 +105,19 @@ void main() {
     float dist_in_box = distInBox(r_main);
     
     if(dist_in_box > 0) {
-        float sub_dist = dist_in_box/SAMPLES;
+        
+        vec3 normal = normalize(cross(vertical, horizontal));
+        float inv_cos_angle = 1.0f/dot(r_main.dir, normal);
+        if(inv_cos_angle == 0.0f) return;
+        float sub_dist = SAMPLE_SEP*inv_cos_angle;//dist_in_box/SAMPLES;
         
         float transmittance = 1;
         float brightness = 0;
         
-        for(int i = 0; i < SAMPLES; i++) {
+        float dist = 0;
+        while(dist < dist_in_box) {
             vec3 sample_point = currentRayPoint(r_main) * SIZE_INV;
-            vec4 data_point = texture(sam, sample_point);
+            float data_point = texture(sam, sample_point).r;
             
             float dens_step = sampleDensity(data_point, sub_dist);
             
@@ -126,12 +129,9 @@ void main() {
                 transmittance *= exp(-dens_step * MAIN_RAY_ABSORBTION);
                 
                 if(transmittance <= 0.01f) break;
-
-            //    r_main.param += sub_dist;
-            //} else {
-            //    r_main.param += sub_dist * SAMPLES * 0.1;
             }
             r_main.param += sub_dist;
+            dist += sub_dist;
         }
         
         vec3 final_col = light_col * brightness * BRIGHTNESS_AMPLIFY;

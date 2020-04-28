@@ -109,5 +109,7 @@ void kernel generate_density(__read_only image3d_t image_in, __write_only image3
     int y = get_global_id(1);
     int z = get_global_id(2);
     
-    write_imagef(image_out, (int4)(x, y, z, 1), read_imagef(image_in, sampler, (int4)(x, y, z, 1)));
+    float density = read_imagef(image_in, sampler, (int4)(x, y, z, 1)).x;
+    
+    write_imagef(image_out, (int4)(x, y, z, 1), density);
 }
