@@ -119,27 +119,6 @@ public:
         else if(fov > ZOOM_MIN) fov = ZOOM_MIN;
         setFov();
     }
-    
-    inline void takeScreenshot(const short screenshot_width, const short screenshot_height, const std::string& name = "screenshot", bool show_image = false) const {
-        std::cout << "Taking screenshot: " << name << ".tga" << std::endl;
-        short TGA_header[] = {0, 2, 0, 0, 0, 0, screenshot_width, screenshot_height, 24};
-        char* pixel_data = new char[3*screenshot_width*screenshot_height]; //there are 3 colors (RGB) for each pixel
-        std::ofstream file("screenshots/" + name + ".tga", std::ios::out | std::ios::binary);
-        if(!pixel_data || !file) {
-            std::cerr << "ERROR: COULD NOT TAKE THE SCREENSHOT" << std::endl;
-            exit(-1);
-        }
-        glReadBuffer(GL_FRONT);
-        glReadPixels(0, 0, screenshot_width, screenshot_height, GL_BGR, GL_UNSIGNED_BYTE, pixel_data);
-        file.write((char*)TGA_header, 9*sizeof(short));
-        file.write(pixel_data, 3*screenshot_width*screenshot_height);
-        file.close();
-        delete[] pixel_data;
-        if(show_image) {
-            std::cout << "Opening the screenshot" << std::endl;
-            std::system(("open " + name + ".tga").c_str());
-        }
-    }
 };
 
 #endif /* camera_h */

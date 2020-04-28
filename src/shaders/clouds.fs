@@ -5,7 +5,7 @@
 #define SIZE 20.0f
 
 in vec2 fragPos;
-out vec4 FragColor;
+out vec4 fragColor;
 
 uniform vec3 origin;
 uniform vec3 camera_llc; // camera's lower left corner position
@@ -126,7 +126,7 @@ void main() {
         hit_distance = distance(hit1/SIZE, hit2);
         hit1 = hit2;
     } else return;
-    //FragColor = vec4(texture(sam, vec3(fragPos, time)).rrr, 1);
+    //fragColor = vec4(texture(sam, vec3(fragPos, time)).rrr, 1);
     
     sub_distance = hit_distance/SAMPLES;
     
@@ -151,11 +151,11 @@ void main() {
     
     float transmittance = 1 - exp(-brightness * strength);
     
-    FragColor = vec4(1, 1, 1, transmittance);
+    fragColor = vec4(1, 1, 1, transmittance);
     
-    //FragColor = vec4(1, 1, 1, hit_distance);
+    //fragColor = vec4(1, 1, 1, hit_distance);
     
-    //FragColor = vec4(texture(sam, getPoint(hit1, r.dir, 0)).rgb,1);
+    //fragColor = vec4(texture(sam, getPoint(hit1, r.dir, 0)).rgb,1);
     
-    //FragColor = vec4(r.dir, 1.0f);
+    //fragColor = vec4(r.dir, 1.0f);
 }

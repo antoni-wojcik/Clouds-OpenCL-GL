@@ -9,7 +9,7 @@
 #define BRIGHTNESS_AMPLIFY 200.0f
 
 in vec2 fragPos;
-out vec4 FragColor;
+out vec4 fragColor;
 
 uniform vec3 origin;
 uniform vec3 camera_llc; // camera's lower left corner position
@@ -136,6 +136,6 @@ void main() {
         
         vec3 final_col = light_col * brightness * BRIGHTNESS_AMPLIFY;
         
-        FragColor = vec4(final_col, 1.0f - transmittance);
+        fragColor = vec4(final_col, 1.0f - transmittance);
     }
 }

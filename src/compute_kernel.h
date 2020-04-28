@@ -49,6 +49,7 @@ private:
     };
     
     cl_GLuint cloud_texture_ID;
+    GLuint texture_loc;
     
     struct pos{
         int x, y, z;
@@ -96,8 +97,7 @@ private:
         
         glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, size, size, size, 0, GL_RGBA, GL_FLOAT, NULL);
         
-        glActiveTexture(GL_TEXTURE0);
-        glUniform1i(glGetUniformLocation(shader.ID, "density_sampler"), 0);
+        texture_loc = glGetUniformLocation(shader.ID, "density_sampler");
         
         glFinish();
     }
@@ -193,11 +193,11 @@ public:
                         for(int i = 0; i < nodes_rep; i++) {
                             int j = 1+(i-1+nodes[m][k])%nodes[m][k];
                             int u = 1+(n-1+nodes[m][k])%nodes[m][k];
-                            v[i][0][n]          = v[j][nodes[m][k]][u];
+                            v[i][0][n]             = v[j][nodes[m][k]][u];
                             v[i][nodes[m][k]+1][n] = v[j][1][u];
-                            v[0][i][n]          = v[nodes[m][k]][j][u];
+                            v[0][i][n]             = v[nodes[m][k]][j][u];
                             v[nodes[m][k]+1][i][n] = v[1][j][u];
-                            v[i][n][0]          = v[j][u][nodes[m][k]];
+                            v[i][n][0]             = v[j][u][nodes[m][k]];
                             v[i][n][nodes[m][k]+1] = v[j][u][1];
                         }
                     }
@@ -222,6 +222,11 @@ public:
                     generate.setArg(k, vertices_image[k]);
                     queue.enqueueWriteImage(vertices_image[k], CL_TRUE, {0, 0, 0}, {size_t(nodes_rep), size_t(nodes_rep), size_t(nodes_rep)}, 0, 0, vertices[k]);
                 }
+                
+                for(int k = 0; k < CHANNELS; k++) {
+                    delete [] vertices[k];
+                }
+                delete [] vertices;
                     
                 cl::Buffer persistence_buff(context, CL_MEM_READ_ONLY, sizeof(cl_float)*CHANNELS);
                 cl::Buffer blending_buff(context, CL_MEM_READ_ONLY, sizeof(cl_float)*CHANNELS);
@@ -240,11 +245,6 @@ public:
                 //if(m == ITERATIONS-1) queue.enqueueReadImage(image, CL_TRUE, {0, 0, 0}, {size_t(size), size_t(size), size_t(size)}, 0, 0, image_result);
 
                 queue.finish();
-                
-                for(int k = 0; k < CHANNELS; k++) {
-                    delete [] vertices[k];
-                }
-                delete [] vertices;
             }
             
         } catch(cl::Error e) {
@@ -257,7 +257,9 @@ public:
     }
     
     void transferData() {
+        glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_3D, cloud_texture_ID);
+        glUniform1i(texture_loc, 0);
     }
     
 };
