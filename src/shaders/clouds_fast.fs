@@ -2,14 +2,11 @@
 
 #define SAMPLES_MAX 500
 #define SAMPLE_SEP 0.003f
-#define LIGHT_SAMPLES 30
+//#define LIGHT_SAMPLES 15
 #define SIZE 1.0f
 #define LIGHT_ABSORBTION 10.0f
 #define MAIN_RAY_ABSORBTION 200.0f
 #define BRIGHTNESS_AMPLIFY 200.0f
-#define CUTOFF 0.4f
-#define CUTOFF_2 0.3f
-#define SLOPE 100.0f
 
 in vec2 fragPos;
 out vec4 fragColor;
@@ -22,12 +19,18 @@ uniform vec3 vertical;
 uniform sampler3D sam;
 uniform float time;
 
+uniform float CUTOFF;
+uniform float CUTOFF_2;
+uniform float SLOPE;
+uniform int LIGHT_SAMPLES;
+
 const vec3 box_origin = vec3(0, 0, 0);
 const vec3 box_end = vec3(SIZE, SIZE, SIZE);
 const float SIZE_INV = 1.0f/SIZE;
 
 const vec3 light_dir = normalize(vec3(0.5, 1, 0.01));
-const vec3 light_col = vec3(1.0f, 1.0f, 1.0f);
+const vec3 light_col = vec3(0.866f, 0.635f, 0.675f);
+const vec3 no_light_col = vec3(0.514f, 0.392f, 0.494f);//vec3(0.933f, 0.663f, 0.604f);
 
 //using Ray structs will allow for shadows and reflections
 struct Ray {
@@ -76,9 +79,6 @@ float distInBox(inout Ray r) {
 }
 
 float sampleDensity(float density, float sub_dist) {
-    if(density < CUTOFF) {
-        density = (tanh((density-CUTOFF_2)*SLOPE)+1.0f)*0.5f*CUTOFF;
-    }
     return density * sub_dist * SIZE_INV;
 }
 
@@ -148,7 +148,7 @@ void main() {
         transmittance *= exp(-dens_step * MAIN_RAY_ABSORBTION);
         
         
-        vec3 final_col = light_col * brightness * BRIGHTNESS_AMPLIFY;
+        vec3 final_col = no_light_col + light_col * brightness * BRIGHTNESS_AMPLIFY;
         
         fragColor = vec4(final_col, 1.0f - transmittance);
     }

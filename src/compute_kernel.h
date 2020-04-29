@@ -31,11 +31,11 @@
 
 class Clouds {
 private:
-    const int size = 128;
+    const int size = 440;
     const int nodes[ITERATIONS][CHANNELS] = {
-        {2, 4,  8,  16},
-        {2, 8,  16, 32},
-        {2, 16, 32, 64}
+        {1, 3,  6,  32},
+        {2, 3,  8, 32},
+        {2, 4, 16, 64}
     };
     const cl_float persistence[ITERATIONS][CHANNELS] = {
         {15.0f, 15.0f, 15.0f, 15.0f},

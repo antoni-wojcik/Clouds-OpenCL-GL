@@ -93,7 +93,7 @@ public:
     
     inline void drawToBuffer(Shader& shader) {
         bind();
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        glClearColor(0.6f, 0.686f, 0.941f, 1.0f);//0.945f, 0.784f, 0.792f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
         glBindVertexArray(VAO);
         shader.use();

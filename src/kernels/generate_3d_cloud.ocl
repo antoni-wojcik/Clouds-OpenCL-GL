@@ -103,9 +103,9 @@ void kernel generate_channels(__read_only image3d_t vertices_ch_0, __read_only i
 }
 
 
-/*#define CUTOFF 0.4f
+#define CUTOFF 0.35f
 #define CUTOFF_2 0.3f
-#define SLOPE 30.0f*/
+#define SLOPE 150.0f
 
 void kernel generate_density(__read_only image3d_t image_in, __write_only image3d_t image_out) {
     int x = get_global_id(0);
@@ -114,11 +114,11 @@ void kernel generate_density(__read_only image3d_t image_in, __write_only image3
     
     float4 channel_data = read_imagef(image_in, sampler, (int4)(x, y, z, 1));
     
-    float density = (channel_data.x*0.7f + channel_data.y*0.2f + channel_data.z*0.1f);
+    float density = (channel_data.x*0.7f + channel_data.y*0.2f + channel_data.z*0.07f + channel_data.w*0.03f);
     
-    /*if(density < CUTOFF) {
-        density = (tanh((density-CUTOFF_2)*SLOPE)+1)*0.5*CUTOFF;
-    }*/
+    if(density < CUTOFF) {
+        density = (tanh((density-CUTOFF_2)*SLOPE)+1.0f)*0.5f*CUTOFF;
+    }
     
     write_imagef(image_out, (int4)(x, y, z, 1), density);
 }
