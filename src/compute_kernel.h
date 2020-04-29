@@ -34,8 +34,8 @@ private:
     const int size = 128;
     const int nodes[ITERATIONS][CHANNELS] = {
         {2, 4,  8,  16},
-        {4, 8,  16, 32},
-        {8, 16, 32, 64}
+        {2, 8,  16, 32},
+        {2, 16, 32, 64}
     };
     const cl_float persistence[ITERATIONS][CHANNELS] = {
         {15.0f, 15.0f, 15.0f, 15.0f},
