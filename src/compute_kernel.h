@@ -31,7 +31,7 @@
 
 class Clouds {
 private:
-    const int size = 440;
+    const int size = 320;
     const int nodes[ITERATIONS][CHANNELS] = {
         {1, 3,  6,  32},
         {2, 3,  8, 32},
@@ -97,37 +97,13 @@ private:
         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); //USE NEAREST TO SPEED UP
         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         
+        // FOR RGBA: glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, size, size, size, 0, GL_RGBA, GL_FLOAT, NULL);
         glTexImage3D(GL_TEXTURE_3D, 0, GL_RG, size, size, size, 0, GL_RED, GL_FLOAT, NULL);
         
         texture_loc = glGetUniformLocation(shader.ID, "density_sampler");
         
         glFinish();
     }
-    
-    /* FOR RGBA USE THIS CODE
-     void generateGLTexture(Shader& shader) {
-         
-         glEnable(GL_TEXTURE_3D);
-         
-         glGenTextures(1, &cloud_texture_ID);
-         
-         glBindTexture(GL_TEXTURE_3D, cloud_texture_ID);
-         
-         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-         
-         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_REPEAT); //GL_CLAMP_TO_EDGE or GL_REPEAT
-         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_REPEAT);
-         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); //USE NEAREST TO SPEED UP
-         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-         
-         glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA32F, size, size, size, 0, GL_RGBA, GL_FLOAT, NULL);
-         
-         texture_loc = glGetUniformLocation(shader.ID, "density_sampler");
-         
-         glFinish();
-     }
-     */
     
 public:
     Clouds(Shader& shader) {

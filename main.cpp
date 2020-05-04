@@ -8,8 +8,9 @@
 
 #define RETINA
 #define PROCESSING_UNIT 1 // 1 - AMD GRAPHCIS CARD
-#define SCR_WIDTH 400
-#define SCR_HEIGHT 400
+
+#define SCR_WIDTH 800
+#define SCR_HEIGHT 800
 
 #include <iostream>
 
@@ -67,11 +68,15 @@ float fps_sum = 0.0f;
 const int fps_steps = 5;
 int fps_steps_counter = 0;
 
-//screenshot variable
+// screenshot variable
 bool taking_screenshot = false;
 
-//camera
-Camera camera(60.0f, glm::vec3(0.5, 0.5, -2));
+// camera pointer
+Camera* camera_ptr;
+
+// screen pointer
+Screen* screen_ptr;
+
 
 void processTime(float time) {
     delta_time = time - last_frame_time;
@@ -161,16 +166,20 @@ int main(int argc, const char* argv[]) {
         return -1;
     }
     
-    Shader shader("src/shaders/screen.vs", "src/shaders/clouds_fast.fs");
+    Shader shader("src/shaders/screen_clouds.vs", "src/shaders/clouds_fast.fs");
     
-    Screen screen;
+    Screen screen("src/shaders/screen.vs", "src/shaders/screen.fs", SCR_WIDTH, SCR_HEIGHT);
+    screen_ptr = &screen;
+    
+    Camera camera(60.0f, glm::vec3(0.5, 0.5, -2));
+    camera_ptr = &camera;
     
     Clouds clouds(shader);
 
     clouds.transferData();
     
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    //glEnable(GL_BLEND);
+    //glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
     while(!glfwWindowShouldClose(window)) {
         #ifdef __APPLE__
@@ -182,11 +191,14 @@ int main(int argc, const char* argv[]) {
         
         processInput(window);
         
+        shader.use();
+        
         camera.transferData(shader);
         
         shader.setFloat("time", currentFrameTime);
         
-        screen.draw(shader);
+        screen.drawToBuffer(shader);
+        screen.drawScreen(shader, scr_width, scr_height);
         
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -202,23 +214,23 @@ void framebufferSizeCallback(GLFWwindow* window, int width, int height) {
     scr_height = height;
     scr_ratio = (float)width/(float)height;
     
-    camera.setSize(scr_ratio);
+    camera_ptr->setSize(scr_ratio);
 }
 
 void processInput(GLFWwindow* window) {
     if(glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) glfwSetWindowShouldClose(window, true);
-    if(glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camera.move(FORWARD, delta_time);
-    if(glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camera.move(BACK, delta_time);
-    if(glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camera.move(LEFT, delta_time);
-    if(glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) camera.move(RIGHT, delta_time);
+    if(glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camera_ptr->move(FORWARD, delta_time);
+    if(glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camera_ptr->move(BACK, delta_time);
+    if(glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camera_ptr->move(LEFT, delta_time);
+    if(glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) camera_ptr->move(RIGHT, delta_time);
     
-    if(glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) camera.setFasterSpeed(true);
-    else if(glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_RELEASE) camera.setFasterSpeed(false);
-    if(glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) camera.setSlowerSpeed(true);
-    else if(glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_RELEASE && glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_RELEASE) camera.setSlowerSpeed(false);
+    if(glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) camera_ptr->setFasterSpeed(true);
+    else if(glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_RELEASE) camera_ptr->setFasterSpeed(false);
+    if(glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) camera_ptr->setSlowerSpeed(true);
+    else if(glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_RELEASE && glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_RELEASE) camera_ptr->setSlowerSpeed(false);
     
     if(glfwGetKey(window, GLFW_KEY_ENTER) == GLFW_PRESS) {
-        if(!taking_screenshot) camera.takeScreenshot(scr_width, scr_height);
+        if(!taking_screenshot) screen_ptr->takeScreenshot(scr_width, scr_height);
         taking_screenshot = true;
     } else if(glfwGetKey(window, GLFW_KEY_ENTER) == GLFW_RELEASE) {
         taking_screenshot = false;
@@ -238,7 +250,7 @@ void mouseCallback(GLFWwindow* window, double x_pos, double y_pos) {
     mouse_last_x = x_pos;
     mouse_last_y = y_pos;
     
-    if(mouse_hidden) camera.rotate(offset_x, offset_y);
+    if(mouse_hidden) camera_ptr->rotate(offset_x, offset_y);
 }
 
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
@@ -253,7 +265,7 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 }
 
 void scrollCallback(GLFWwindow* window, double offset_x, double offset_y) {
-    camera.zoom(offset_y);
+    camera_ptr->zoom(offset_y);
 }
 
 
