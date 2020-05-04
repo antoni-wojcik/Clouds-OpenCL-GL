@@ -97,7 +97,7 @@ private:
         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); //USE NEAREST TO SPEED UP
         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         
-        glTexImage3D(GL_TEXTURE_3D, 0, GL_RED, size, size, size, 0, GL_RED, GL_FLOAT, NULL);
+        glTexImage3D(GL_TEXTURE_3D, 0, GL_RG, size, size, size, 0, GL_RED, GL_FLOAT, NULL);
         
         texture_loc = glGetUniformLocation(shader.ID, "density_sampler");
         
@@ -131,8 +131,10 @@ private:
     
 public:
     Clouds(Shader& shader) {
+        cl::Device device;
+        cl::Program computing_program;
+        
         try {
-            cl::Device device;
             std::vector<cl::Platform> platforms;
             std::vector<cl::Device> devices;
             cl::Platform::get(&platforms);
@@ -170,11 +172,13 @@ public:
             std::string kernel_code = loadSource("src/kernels/generate_3d_cloud.ocl");
             sources.push_back({kernel_code.c_str(), kernel_code.length()});
             
-            cl::Program computing_program(context, sources);
+            computing_program = cl::Program(context, sources);
             if (computing_program.build({device}) != CL_SUCCESS) {
                 std::cout << "ERROR: OpenCL: CANNOT BUILD PROGRAM " << computing_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
                 exit(-1);
             }
+            
+            
             
             std::random_device dev;
             std::mt19937 rng(dev()); //random number generator
@@ -291,8 +295,8 @@ public:
             
         } catch(cl::Error e) {
             std::cerr << "ERROR: OpenCL: OTHER: " << e.what() << ": " << e.err() << std::endl;
-            if(e.err() == -11) {
-                std::cerr << "COMPILATION ERROR, CHECK THE SYNTAX\nUSE:\nhttps://streamhpc.com/blog/2013-05-13/verify-your-opencl-kernel-online/\nTO FIND ERRORS" << std::endl;
+            if(e.err() == CL_BUILD_PROGRAM_FAILURE) {
+                std::cerr << "ERROR: OpenCL: CANNOT BUILD PROGRAM: " << computing_program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device) << std::endl;
             } else std::cerr << "USE:\nhttps://streamhpc.com/blog/2013-04-28/opencl-error-codes\nTO VERIFY ERROR TYPE" << std::endl;
             exit(-1);
         }

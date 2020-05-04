@@ -11,9 +11,9 @@
 #include "glm.hpp"
 #include "shader.h"
 
-const float CAMERA_SPEED_SLOW = 1.0f;
-const float CAMERA_SPEED_NORMAL = 10.0f;
-const float CAMERA_SPEED_FAST = 50.0f;
+const float CAMERA_SPEED_SLOW = 0.3f;
+const float CAMERA_SPEED_NORMAL = 1.0f;
+const float CAMERA_SPEED_FAST = 5.0f;
 const float MOUSE_SENSITIVITY = 0.2f;
 const float YAW = 0.0f;
 const float PITCH = 0.0f;

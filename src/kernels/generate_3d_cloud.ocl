@@ -1,4 +1,6 @@
-const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_REPEAT | CLK_FILTER_NEAREST;
+// FIRST KERNEL - CALCULATE CHANNEL DATA
+
+__constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_REPEAT | CLK_FILTER_NEAREST;
 
 void kernel generate_channels(__read_only image3d_t vertices_ch_0, __read_only image3d_t vertices_ch_1, __read_only image3d_t vertices_ch_2, __read_only image3d_t vertices_ch_3, global const float* persistence, global const float* blending, __read_only image3d_t image_in, __write_only image3d_t image_out) {
 
@@ -89,36 +91,117 @@ void kernel generate_channels(__read_only image3d_t vertices_ch_0, __read_only i
     if(blending[2] < 1.0f) brightness.z = blending[2] * brightness.z + (1.0f-blending[2]) * read_imagef(image_in, sampler, (int4)(x, y, z, 1)).z;
     if(blending[3] < 1.0f) brightness.w = blending[3] * brightness.w + (1.0f-blending[3]) * read_imagef(image_in, sampler, (int4)(x, y, z, 1)).w;
     
-    /*
-     if(blending[0] < 1.0f) brightness.x = mix(brightness.x, read_imagef(image_in, sampler, (int4)(x, y, z, 1)).x, blending[0]);
-     if(blending[1] < 1.0f) brightness.y = mix(brightness.y, read_imagef(image_in, sampler, (int4)(x, y, z, 1)).y, blending[1]);
-     if(blending[2] < 1.0f) brightness.z = mix(brightness.y, read_imagef(image_in, sampler, (int4)(x, y, z, 1)).z, blending[2]);
-     if(blending[3] < 1.0f) brightness.w = mix(brightness.z, read_imagef(image_in, sampler, (int4)(x, y, z, 1)).w, blending[3]);
-     */
-    
-    
     // OUTPUT
         
     write_imagef(image_out, (int4)(x, y, z, 1), brightness);
 }
 
 
+// SECOND KERNEL - CALCULATE DENSITY AND LIGHT DATA
+
+
+#define SIZE 1.0f
+#define SAMPLE_SEP_LIGHT 0.01f
+#define LIGHT_ABSORBTION 10.0f
+
 #define CUTOFF 0.35f
 #define CUTOFF_2 0.3f
 #define SLOPE 150.0f
+
+__constant sampler_t sampler_norm = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR;
+
+__constant float SIZE_INV = 1.0f / SIZE;
+
+__constant float3 box_origin = (float3)(0.0f, 0.0f, 0.0f);
+__constant float3 box_end = (float3)(SIZE, SIZE, SIZE);
+__constant float3 light_dir = (float3)(0.4472f, 0.8944f, 0.0089f);
+
+typedef struct {
+    float3 start; //starting location
+    float3 dir; //has to be normalized
+    float3 dir_inv;
+    float param; //has to be set to 0 when initalized
+} Ray;
+
+
+Ray genLightRay(float3 start) {
+    Ray r;
+    r.start = start;
+    r.dir = light_dir;
+    r.dir_inv = (float3)(1.0f, 1.0f, 1.0f) / r.dir;
+    r.param = 0.0f;
+    return r;
+}
+
+float3 currentRayPoint(Ray *r) {
+    return (*r).start + (*r).dir * (*r).param;
+}
+
+float distInBox(Ray *r) {
+    float3 t1 = (box_origin - (*r).start) * (*r).dir_inv;
+    float3 t2 = (box_end - (*r).start) * (*r).dir_inv;
+    float3 t_min = min(t1, t2);
+    float3 t_max = max(t1, t2);
+    
+    float param1 = max(max(t_min.x, t_min.y), t_min.z);
+    float param2 = min(t_max.x, min(t_max.y, t_max.z));
+    
+    float dist_to_box = max(0.0f, param1);
+    float dist_inside_box = max(0.0f, param2 - dist_to_box);
+    
+    return dist_inside_box;
+}
+
+float sampleDensity(image3d_t image_in, float3 loc) {
+    float4 loc4 = (float4)(loc.x, loc.y, loc.z, 1.0f);
+    float4 channel_data = read_imagef(image_in, sampler_norm, loc4);
+    
+    float density = (channel_data.x * 0.7f + channel_data.y * 0.2f + channel_data.z * 0.07f + channel_data.w * 0.03f);
+    
+    if(density < CUTOFF) {
+        density = (tanh((density - CUTOFF_2) * SLOPE) + 1.0f) * 0.5f * CUTOFF;
+    }
+    return density;
+}
+
+float addDensity(float density, float sub_dist) {
+    return density * sub_dist * SIZE_INV;
+}
+
+float calcLight(image3d_t *image_in, float3 start) {
+    
+    Ray r_light = genLightRay(start);
+    
+    float dist_edge = distInBox(&r_light);
+    float inv_cos_angle = 1.0f / dot(r_light.dir, light_dir);
+    float sub_dist = SAMPLE_SEP_LIGHT * inv_cos_angle;
+    float dist = 0.0f;
+    
+    float dens_tot = 0.0f;
+    
+    while(dist <= dist_edge) {
+        float data_point = sampleDensity(*image_in, currentRayPoint(&r_light));
+        dens_tot += addDensity(data_point, sub_dist);
+        
+        r_light.param += sub_dist;
+        dist += sub_dist;
+    }
+    
+    return exp(-dens_tot * LIGHT_ABSORBTION);
+}
 
 void kernel generate_density(__read_only image3d_t image_in, __write_only image3d_t image_out) {
     int x = get_global_id(0);
     int y = get_global_id(1);
     int z = get_global_id(2);
     
-    float4 channel_data = read_imagef(image_in, sampler, (int4)(x, y, z, 1));
+    float size_inv = 1.0f / (float)(get_image_width(image_in));
     
-    float density = (channel_data.x*0.7f + channel_data.y*0.2f + channel_data.z*0.07f + channel_data.w*0.03f);
+    float3 loc = (float3)((float)(x) * size_inv, (float)(y) * size_inv, (float)(z) * size_inv);
     
-    if(density < CUTOFF) {
-        density = (tanh((density-CUTOFF_2)*SLOPE)+1.0f)*0.5f*CUTOFF;
-    }
+    float density = sampleDensity(image_in, loc);
     
-    write_imagef(image_out, (int4)(x, y, z, 1), density);
+    float light = calcLight(&image_in, loc);
+    
+    write_imagef(image_out, (int4)(x, y, z, 1), (float4)(density, light, 0.0f, 1.0f));
 }
