@@ -86,7 +86,7 @@ void main() {
         float r_param_max = r_main.param + dist_in_box;
         
         while(dist <= dist_in_box) {
-            vec3 sample_point = currentRayPoint(r_main) * SIZE_INV;
+            vec3 sample_point = currentRayPoint(r_main) * SIZE_INV + vec3(time*0.3f, 0, time*0.1f);
             vec2 data = texture(sam, sample_point).rg;
             float data_point = data.x;
             
@@ -106,7 +106,7 @@ void main() {
         
         //sub_dist = (dist_in_box - dist);
         r_main.param = r_param_max;
-        vec3 sample_point = currentRayPoint(r_main) * SIZE_INV;
+        vec3 sample_point = currentRayPoint(r_main) * SIZE_INV + vec3(time*0.3f, 0, time*0.1f);;
         
         vec2 data = texture(sam, sample_point).rg;
         float data_point = data.x;

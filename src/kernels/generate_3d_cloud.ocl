@@ -99,6 +99,7 @@ void kernel generate_channels(__read_only image3d_t vertices_ch_0, __read_only i
 
 // SECOND KERNEL - CALCULATE DENSITY AND LIGHT DATA
 
+#define REPEATING
 
 #define SIZE 1.0f
 #define SAMPLE_SEP_LIGHT 0.01f
@@ -108,7 +109,11 @@ void kernel generate_channels(__read_only image3d_t vertices_ch_0, __read_only i
 #define CUTOFF_2 0.3f
 #define SLOPE 150.0f
 
+#ifdef REPEATING
 __constant sampler_t sampler_norm = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR;
+#else
+__constant sampler_t sampler_norm = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_NONE | CLK_FILTER_LINEAR;
+#endif
 
 __constant float SIZE_INV = 1.0f / SIZE;
 
@@ -119,8 +124,11 @@ __constant float3 light_dir = (float3)(0.4472f, 0.8944f, 0.0089f);
 typedef struct {
     float3 start; //starting location
     float3 dir; //has to be normalized
-    float3 dir_inv;
     float param; //has to be set to 0 when initalized
+
+    #ifndef REPEATING
+    float3 dir_inv;
+    #endif
 } Ray;
 
 
@@ -128,14 +136,25 @@ Ray genLightRay(float3 start) {
     Ray r;
     r.start = start;
     r.dir = light_dir;
-    r.dir_inv = (float3)(1.0f, 1.0f, 1.0f) / r.dir;
     r.param = 0.0f;
+    
+    #ifndef REPEATING
+    r.dir_inv = (float3)(1.0f, 1.0f, 1.0f) / r.dir;
+    #endif
+    
     return r;
 }
 
 float3 currentRayPoint(Ray *r) {
     return (*r).start + (*r).dir * (*r).param;
 }
+
+#ifdef REPEATING
+float distToTop(Ray *r) {
+    return (box_end.y - (*r).start.y) / (*r).dir.y;
+}
+
+#else
 
 float distInBox(Ray *r) {
     float3 t1 = (box_origin - (*r).start) * (*r).dir_inv;
@@ -151,6 +170,7 @@ float distInBox(Ray *r) {
     
     return dist_inside_box;
 }
+#endif
 
 float sampleDensity(image3d_t image_in, float3 loc) {
     float4 loc4 = (float4)(loc.x, loc.y, loc.z, 1.0f);
@@ -172,7 +192,12 @@ float calcLight(image3d_t *image_in, float3 start) {
     
     Ray r_light = genLightRay(start);
     
+    #ifdef REPEATING
+    float dist_edge = distToTop(&r_light);
+    #else
     float dist_edge = distInBox(&r_light);
+    #endif
+    
     float inv_cos_angle = 1.0f / dot(r_light.dir, light_dir);
     float sub_dist = SAMPLE_SEP_LIGHT * inv_cos_angle;
     float dist = 0.0f;
