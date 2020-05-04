@@ -19,7 +19,7 @@ uniform sampler3D sam;
 uniform float time;
 
 const vec3 box_origin = vec3(0.0f, 0.0f, 0.0f);
-const vec3 box_end = vec3(SIZE, SIZE, SIZE);
+const vec3 box_end = vec3(2*SIZE, SIZE, 2*SIZE);
 const float SIZE_INV = 1.0f / SIZE;
 
 const vec3 light_dir = normalize(vec3(0.5f, 1.0f, 0.01f));
@@ -28,7 +28,7 @@ const vec3 no_light_col = vec3(71.0f/255.0f, 73.0f/255.0f, 77.0f/255.0f); //vec3
 
 const vec3 bottom_col = vec3(34.0f/255.0f, 41.0f/255.0f, 46.0f/255.0f);
 const vec3 top_col = vec3(60.0f/255.0f, 69.0f/255.0f, 77.0f/255.0f);
-const vec3 moon_col = vec3(203.0f/255.0f, 214.0f/255.0f, 234.0f/255.0f);
+const vec3 moon_col = vec3(203.0f/255.0f, 214.0f/255.0f, 234.0f/255.0f) * 1.5f;
 
 const vec3 velocity = vec3(0.05f, 0.0f, 0.02f);
 
@@ -158,5 +158,5 @@ void main() {
     
     fragColor = vec4(final_col, 1.0f);
     
-    //gl_FragDepth = 0.0f;
+    gl_FragDepth = 0.0f;
 }

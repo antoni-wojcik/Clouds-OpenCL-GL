@@ -77,7 +77,7 @@ public:
         updateVectors();
     }
     
-    inline void transferData(Shader& shader) {
+    inline void transferData(Shader& shader) const {
         shader.setVec3("origin", position);
         shader.setVec3("camera_llc", lower_left_corner);
         shader.setVec3("horizontal", horizontal);

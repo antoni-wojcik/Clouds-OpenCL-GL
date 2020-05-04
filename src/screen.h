@@ -10,6 +10,7 @@
 
 #include <string>
 #include <fstream>
+#include "camera.h"
 
 class Screen {
 private:
@@ -93,8 +94,6 @@ public:
     
     inline void drawToBuffer(Shader& shader) {
         bind();
-        //glClearColor(45.0f/255.0f, 47.0f/255.0f, 51.0f/255.0f, 1.0f);//0.639f, 0.639f, 0.639f, 1.0f);//0.945f, 0.784f, 0.792f, 1.0f);
-        //glClear(GL_COLOR_BUFFER_BIT);
         glBindVertexArray(VAO);
         shader.use();
         
