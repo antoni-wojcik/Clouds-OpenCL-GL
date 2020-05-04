@@ -19,12 +19,14 @@ uniform sampler3D sam;
 uniform float time;
 
 const vec3 box_origin = vec3(0.0f, 0.0f, 0.0f);
-const vec3 box_end = vec3(SIZE, SIZE, SIZE);
+const vec3 box_end = vec3(3*SIZE, SIZE, 3*SIZE);
 const float SIZE_INV = 1.0f / SIZE;
 
 const vec3 light_dir = normalize(vec3(0.5f, 1.0f, 0.01f));
 const vec3 light_col = vec3(0.866f, 0.635f, 0.675f);
 const vec3 no_light_col = vec3(0.514f, 0.392f, 0.494f);//vec3(0.933f, 0.663f, 0.604f);
+
+const vec3 velocity = vec3(0.05f, 0.0f, 0.02f);
 
 
 struct Ray {
@@ -86,7 +88,7 @@ void main() {
         float r_param_max = r_main.param + dist_in_box;
         
         while(dist <= dist_in_box) {
-            vec3 sample_point = currentRayPoint(r_main) * SIZE_INV + vec3(time*0.3f, 0, time*0.1f);
+            vec3 sample_point = currentRayPoint(r_main) * SIZE_INV + velocity * time;
             vec2 data = texture(sam, sample_point).rg;
             float data_point = data.x;
             
@@ -106,7 +108,7 @@ void main() {
         
         //sub_dist = (dist_in_box - dist);
         r_main.param = r_param_max;
-        vec3 sample_point = currentRayPoint(r_main) * SIZE_INV + vec3(time*0.3f, 0, time*0.1f);;
+        vec3 sample_point = currentRayPoint(r_main) * SIZE_INV + velocity * time;
         
         vec2 data = texture(sam, sample_point).rg;
         float data_point = data.x;

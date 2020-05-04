@@ -107,7 +107,7 @@ void kernel generate_channels(__read_only image3d_t vertices_ch_0, __read_only i
 
 #define CUTOFF 0.35f
 #define CUTOFF_2 0.3f
-#define SLOPE 150.0f
+#define SLOPE 40.0f
 
 #ifdef REPEATING
 __constant sampler_t sampler_norm = CLK_NORMALIZED_COORDS_TRUE | CLK_ADDRESS_REPEAT | CLK_FILTER_LINEAR;
