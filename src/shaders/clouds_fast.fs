@@ -157,4 +157,6 @@ void main() {
     final_col = mix(final_col, background_color, transmittance);
     
     fragColor = vec4(final_col, 1.0f);
+    
+    //gl_FragDepth = 0.0f;
 }

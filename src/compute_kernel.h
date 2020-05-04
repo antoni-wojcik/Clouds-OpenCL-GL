@@ -34,13 +34,13 @@ private:
     const int size = 320;
     const int nodes[ITERATIONS][CHANNELS] = {
         {1, 3,  6,  32},
-        {2, 3,  8, 32},
-        {2, 4, 16, 64}
+        {2, 10,  30, 128},
+        {2, 40, 60, 200}
     };
     const cl_float persistence[ITERATIONS][CHANNELS] = {
         {15.0f, 15.0f, 15.0f, 15.0f},
         {10.0f, 10.0f, 10.0f, 10.0f},
-        {10.0f, 10.0f, 10.0f, 10.0f}
+        {5.0f, 5.0f, 5.0f, 5.0f}
     };
     const cl_float blending[ITERATIONS][CHANNELS] = {
         {1.0f, 1.0f, 1.0f, 1.0f},
