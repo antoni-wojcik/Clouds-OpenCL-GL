@@ -41,6 +41,11 @@ private:
     glm::vec3 up, position;
     glm::vec3 horizontal, vertical, lower_left_corner;
     
+    glm::mat4 pvMatrix;
+    
+    inline void updatePVMatrix() {
+        pvMatrix = glm::perspective(glm::radians(fov), aspect, 0.1f, 1000.0f) * glm::lookAt(glm::vec3(0.0f), w, v);
+    }
     
     inline void updateVectors() {
         float rad_pitch = glm::radians(pitch), rad_yaw = glm::radians(yaw);
@@ -50,9 +55,12 @@ private:
         w = normalize(w);
         u = normalize(cross(w, up));
         v = cross(u, w);
+        
         lower_left_corner = w-(half_width*u + half_height*v);
         horizontal = 2.0f*half_width*u;
         vertical = 2.0f*half_height*v;
+        
+        updatePVMatrix();
     }
     
     inline void setFov() {
@@ -67,21 +75,6 @@ public:
         half_height = tan(angle*0.5f);
         half_width = aspect * half_height;
         updateVectors();
-    }
-    
-    inline void setSize(float new_aspect) {
-        aspect = new_aspect;
-        float angle = fov*M_PI/180.0f;
-        half_height = tan(angle*0.5f);
-        half_width = aspect * half_height;
-        updateVectors();
-    }
-    
-    inline void transferData(Shader& shader) const {
-        shader.setVec3("origin", position);
-        shader.setVec3("camera_llc", lower_left_corner);
-        shader.setVec3("horizontal", horizontal);
-        shader.setVec3("vertical", vertical);
     }
     
     inline void move(CameraMovementDirection dir, float dt) {
@@ -118,6 +111,29 @@ public:
         if(fov < ZOOM_MAX) fov = ZOOM_MAX;
         else if(fov > ZOOM_MIN) fov = ZOOM_MIN;
         setFov();
+    }
+    
+    inline void setSize(float new_aspect) {
+        aspect = new_aspect;
+        float angle = fov*M_PI/180.0f;
+        half_height = tan(angle*0.5f);
+        half_width = aspect * half_height;
+        updateVectors();
+    }
+    
+    inline void transferData(Shader& shader) const {
+        shader.setVec3("origin", position);
+        shader.setVec3("camera_llc", lower_left_corner);
+        shader.setVec3("horizontal", horizontal);
+        shader.setVec3("vertical", vertical);
+    }
+    
+    inline glm::mat4 transferPVMatrix() const {
+        return pvMatrix;
+    }
+    
+    inline glm::vec3 transferPos() const {
+        return position;
     }
 };
 

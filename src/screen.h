@@ -10,28 +10,49 @@
 
 #include <string>
 #include <fstream>
+
+#include "object.h"
 #include "camera.h"
 
 class Screen {
 private:
     short width, height;
     Shader screen_shader;
-    unsigned int FBO;
+    unsigned int FBO_scene, FBO_screen;
+    
+    unsigned int scene_texture;
+    GLuint scene_texture_loc;
     unsigned int screen_texture;
-    GLuint texture_loc;
+    GLuint screen_texture_loc;
     
     float vertices[12];
     unsigned int indices[6];
     unsigned int VBO, VAO, EBO;
     
-    void setupFramebuffer() {
-        glGenFramebuffers(1, &FBO);
-        glBindFramebuffer(GL_FRAMEBUFFER, FBO);
+    void setupSceneFramebuffer(Shader& cloud_shader) {
+        glGenFramebuffers(1, &FBO_scene);
+        glBindFramebuffer(GL_FRAMEBUFFER, FBO_scene);
+        
+        glGenTextures(1, &scene_texture);
+        glBindTexture(GL_TEXTURE_2D, scene_texture);
+        scene_texture_loc = glGetUniformLocation(cloud_shader.ID, "sceneTexture");
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, scene_texture, 0);
+        
+        if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) std::cout << "ERROR: OpenGL: Failed to create framebuffer" << std::endl;
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
+    
+    void setupScreenFramebuffer() {
+        glGenFramebuffers(1, &FBO_screen);
+        glBindFramebuffer(GL_FRAMEBUFFER, FBO_screen);
         
         glGenTextures(1, &screen_texture);
         glBindTexture(GL_TEXTURE_2D, screen_texture);
-        texture_loc = glGetUniformLocation(screen_shader.ID, "screenTexture");
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+        screen_texture_loc = glGetUniformLocation(screen_shader.ID, "screenTexture");
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screen_texture, 0);
@@ -40,18 +61,26 @@ private:
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
     
-    inline void bind() {
-        glBindFramebuffer(GL_FRAMEBUFFER, FBO);
+    inline void bindScene() {
+        glEnable(GL_DEPTH_TEST);
+        glBindFramebuffer(GL_FRAMEBUFFER, FBO_scene);
+        glViewport(0, 0, width, height);
+    }
+    
+    inline void bindScreen() {
+        glDisable(GL_DEPTH_TEST);
+        glBindFramebuffer(GL_FRAMEBUFFER, FBO_screen);
         glViewport(0, 0, width, height);
     }
     
     inline void unbind(int scr_width, int scr_height) {
+        glDisable(GL_DEPTH_TEST);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, scr_width, scr_height);
     }
     
 public:
-    Screen(const char* screen_vertex_path, const char* screen_fragment_path, int buff_width, int buff_height) : vertices {
+    Screen(const char* screen_vertex_path, const char* screen_fragment_path, Shader& cloud_shader, int buff_width, int buff_height) : vertices {
         1.0f,  1.0f, 0.0f,  // top right
         1.0f, -1.0f, 0.0f,  // bottom right
         -1.0f, -1.0f, 0.0f,  // bottom left
@@ -79,9 +108,9 @@ public:
         glBindVertexArray(0);
         
         screen_shader.use();
-        screen_shader.setInt("screenTexture", 0);
         
-        setupFramebuffer();
+        setupSceneFramebuffer(cloud_shader);
+        setupScreenFramebuffer();
     }
     
     ~Screen() {
@@ -89,14 +118,37 @@ public:
         glDeleteBuffers(1, &VBO);
         glDeleteBuffers(1, &EBO);
         
-        glDeleteFramebuffers(1, &FBO);
+        glDeleteFramebuffers(1, &FBO_scene);
+        glDeleteFramebuffers(1, &FBO_screen);
     }
     
-    inline void drawToBuffer(Shader& shader) {
-        bind();
-        glBindVertexArray(VAO);
+    inline void clearScene() {
+        bindScene();
+        
+        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    }
+    
+    inline void drawObject(Object& obj, Camera& camera) {
+        
+        glEnable(GL_CULL_FACE);
+        bindScene();
+        
+        obj.render(camera);
+        
+        glDisable(GL_CULL_FACE);
+    }
+    
+    inline void drawClouds(Shader& shader) {
+        bindScreen();
+        
         shader.use();
         
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, scene_texture); // !!!!!!!!!!!!!
+        glUniform1i(scene_texture_loc, 1);
+        
+        glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
     }
     
@@ -106,8 +158,9 @@ public:
         
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, screen_texture);
-        glUniform1i(texture_loc, 0);
+        glUniform1i(screen_texture_loc, 0);
         
+        glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
     }
     
@@ -121,7 +174,7 @@ public:
             exit(-1);
         }
         
-        bind();
+        bindScreen();
         glReadBuffer(GL_FRONT);
         glReadPixels(0, 0, width, height, GL_BGR, GL_UNSIGNED_BYTE, pixel_data);
         unbind(scr_width, scr_height);

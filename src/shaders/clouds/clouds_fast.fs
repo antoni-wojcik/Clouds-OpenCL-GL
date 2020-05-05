@@ -10,19 +10,20 @@
 in vec2 fragPos;
 out vec4 fragColor;
 
+uniform sampler3D sam;
+uniform sampler2D sceneTexture;
+uniform float time;
+
 uniform vec3 origin;
 uniform vec3 camera_llc; // camera's lower left corner position
 uniform vec3 horizontal;
 uniform vec3 vertical;
 
-uniform sampler3D sam;
-uniform float time;
-
 const vec3 box_origin = vec3(0.0f, 0.0f, 0.0f);
-const vec3 box_end = vec3(2*SIZE, SIZE, 2*SIZE);
+const vec3 box_end = vec3(SIZE, SIZE, SIZE);
 const float SIZE_INV = 1.0f / SIZE;
 
-const vec3 light_dir = normalize(vec3(0.5f, 1.0f, 0.01f));
+const vec3 light_dir = normalize(vec3(0.5f, 1.0f, 0.3f));
 const vec3 light_col = vec3(144.0f/255.0f, 154.0f/255.0f, 171.0f/255.0f);
 const vec3 no_light_col = vec3(71.0f/255.0f, 73.0f/255.0f, 77.0f/255.0f); //vec3(0.514f, 0.392f, 0.494f);//vec3(0.933f, 0.663f, 0.604f);
 
@@ -97,7 +98,16 @@ void main() {
 
     float transmittance = 1.0f;
     
-    vec3 background_color = calculateBackground(r_main.dir);
+    vec3 background_color;
+    
+    vec4 obj_data = texture(sceneTexture, fragPos);
+    float obj_dist = obj_data.w;
+    if(obj_dist == 0.0f) {
+        obj_dist = 1.0f/0.0f;
+        background_color = calculateBackground(r_main.dir);
+    } else {
+        background_color = obj_data.rgb;
+    }
     
     if(dist_in_box > 0.0f) {
         vec3 normal = normalize(cross(vertical, horizontal));
@@ -110,7 +120,7 @@ void main() {
         
         float r_param_max = r_main.param + dist_in_box;
         
-        while(dist <= dist_in_box) {
+        while(dist <= dist_in_box && r_main.param < obj_dist) {
             vec3 sample_point = currentRayPoint(r_main) * SIZE_INV + velocity * time;
             vec2 data = texture(sam, sample_point).rg;
             float data_point = data.x;
@@ -132,18 +142,19 @@ void main() {
             }
         }
         
-        //sub_dist = (dist_in_box - dist);
-        r_main.param = r_param_max;
-        
-        vec3 sample_point = currentRayPoint(r_main) * SIZE_INV + velocity * time;
-        vec2 data = texture(sam, sample_point).rg;
-        float data_point = data.x;
-        
-        float dens_step = sampleDensity(data_point, sub_dist);
-        float light_transmittance = data.y;
-        
-        brightness += dens_step * light_transmittance * transmittance;
-        transmittance *= exp(-dens_step * MAIN_RAY_ABSORBTION);
+        if(r_main.param < obj_dist) {
+            r_main.param = r_param_max;
+            
+            vec3 sample_point = currentRayPoint(r_main) * SIZE_INV + velocity * time;
+            vec2 data = texture(sam, sample_point).rg;
+            float data_point = data.x;
+            
+            float dens_step = sampleDensity(data_point, sub_dist);
+            float light_transmittance = data.y;
+            
+            brightness += dens_step * light_transmittance * transmittance;
+            transmittance *= exp(-dens_step * MAIN_RAY_ABSORBTION);
+        }
         
         
         final_col = no_light_col + light_col * brightness * BRIGHTNESS_AMPLIFY;
