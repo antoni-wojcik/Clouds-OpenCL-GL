@@ -4,9 +4,13 @@ Simulate clouds in real-time by raymarching using OpenCL to create noise and Ope
 
 # TODO
 
+* Depth testing with other objects
+
+# DONE
+
 * ✓✓✓ Change the sampling number from a constant to a variable depending on the angle from a normal to the camera's plane to the direction of the ray.
-* ✓ (a bit) Improve sampling of density at each point.
-* Improve light effects.
+* ✓✓✓ Improve sampling of density at each point.
+* ✓✓✓ Improve light effects.
 
 INCREASE PERFORMANCE:
 

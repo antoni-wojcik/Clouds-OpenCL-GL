@@ -1,7 +1,7 @@
 #version 410 core
 
 #define SAMPLE_SEP 0.003f
-#define SAMPLE_SEP_BLANK 0.02f
+#define SAMPLE_SEP_BLANK 0.01f
 
 #define SIZE 1.0f
 #define MAIN_RAY_ABSORBTION 200.0f
@@ -115,9 +115,8 @@ void main() {
             vec2 data = texture(sam, sample_point).rg;
             float data_point = data.x;
             
-            float dens_step = sampleDensity(data_point, sub_dist);
-            
-            if(dens_step > 0.0f) {
+            if(data_point > 0.0f) {
+                float dens_step = sampleDensity(data_point, sub_dist);
                 float light_transmittance = data.y;
                 
                 brightness += dens_step * light_transmittance * transmittance;
@@ -135,28 +134,22 @@ void main() {
         
         //sub_dist = (dist_in_box - dist);
         r_main.param = r_param_max;
-        vec3 sample_point = currentRayPoint(r_main) * SIZE_INV + velocity * time;
         
+        vec3 sample_point = currentRayPoint(r_main) * SIZE_INV + velocity * time;
         vec2 data = texture(sam, sample_point).rg;
         float data_point = data.x;
         
         float dens_step = sampleDensity(data_point, sub_dist);
-        
         float light_transmittance = data.y;
+        
         brightness += dens_step * light_transmittance * transmittance;
         transmittance *= exp(-dens_step * MAIN_RAY_ABSORBTION);
         
         
         final_col = no_light_col + light_col * brightness * BRIGHTNESS_AMPLIFY;
-        
-        final_col = mix(final_col, background_color, transmittance);
-        
-        fragColor = vec4(final_col, 1.0f);
     }
     
     final_col = mix(final_col, background_color, transmittance);
     
-    fragColor = vec4(final_col, 1.0f);
-    
-    gl_FragDepth = 0.0f;
+    fragColor = vec4(final_col, 0.0f);
 }

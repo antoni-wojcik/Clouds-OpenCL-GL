@@ -102,7 +102,7 @@ void kernel generate_channels(__read_only image3d_t vertices_ch_0, __read_only i
 #define REPEATING
 
 #define SIZE 1.0f
-#define SAMPLE_SEP_LIGHT 0.001f
+#define SAMPLE_SEP_LIGHT 0.01f
 #define LIGHT_ABSORBTION 10.0f
 
 #define CUTOFF 0.35f
