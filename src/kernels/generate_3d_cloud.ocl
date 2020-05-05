@@ -119,7 +119,7 @@ __constant float SIZE_INV = 1.0f / SIZE;
 
 __constant float3 box_origin = (float3)(0.0f, 0.0f, 0.0f);
 __constant float3 box_end = (float3)(SIZE, SIZE, SIZE);
-__constant float3 light_dir = (float3)(0.4319f, 0.8639f, 0.2592f);
+__constant float3 light_dir = (float3)(0.4319f, 0.8639f, -0.2592f);
 
 typedef struct {
     float3 start; //starting location

@@ -11,7 +11,7 @@ uniform mat4 M;
 uniform mat4 PVM;
 
 void main() {
-    normal = a_normal;
+    normal = mat3(transpose(inverse(M))) * a_normal; 
     tex_coords = a_tex_coords;
     
     vec4 pos4 = vec4(a_pos, 1.0f);

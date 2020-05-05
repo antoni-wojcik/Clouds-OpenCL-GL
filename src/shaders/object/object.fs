@@ -9,9 +9,9 @@ uniform sampler2D obj_texture;
 uniform vec3 camera_pos;
 
 const vec3 light_col = vec3(144.0f/255.0f, 154.0f/255.0f, 171.0f/255.0f);
-const vec3 light_dir = normalize(vec3(0.5f, 1.0f, 0.3f));
+const vec3 light_dir = normalize(vec3(0.5f, 1.0f, -0.3f));
 
-const float ambient_strength = 0.2f;
+const float ambient_strength = 1.0f;
 const float specular_strength = 1.0f;
 
 void main() {

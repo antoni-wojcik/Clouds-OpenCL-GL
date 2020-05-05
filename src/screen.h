@@ -62,19 +62,16 @@ private:
     }
     
     inline void bindScene() {
-        glEnable(GL_DEPTH_TEST);
         glBindFramebuffer(GL_FRAMEBUFFER, FBO_scene);
         glViewport(0, 0, width, height);
     }
     
     inline void bindScreen() {
-        glDisable(GL_DEPTH_TEST);
         glBindFramebuffer(GL_FRAMEBUFFER, FBO_screen);
         glViewport(0, 0, width, height);
     }
     
     inline void unbind(int scr_width, int scr_height) {
-        glDisable(GL_DEPTH_TEST);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, scr_width, scr_height);
     }

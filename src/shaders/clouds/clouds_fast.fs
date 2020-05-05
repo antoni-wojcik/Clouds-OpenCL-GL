@@ -23,7 +23,7 @@ const vec3 box_origin = vec3(0.0f, 0.0f, 0.0f);
 const vec3 box_end = vec3(SIZE, SIZE, SIZE);
 const float SIZE_INV = 1.0f / SIZE;
 
-const vec3 light_dir = normalize(vec3(0.5f, 1.0f, 0.3f));
+const vec3 light_dir = normalize(vec3(0.5f, 1.0f, -0.3f));
 const vec3 light_col = vec3(144.0f/255.0f, 154.0f/255.0f, 171.0f/255.0f);
 const vec3 no_light_col = vec3(71.0f/255.0f, 73.0f/255.0f, 77.0f/255.0f); //vec3(0.514f, 0.392f, 0.494f);//vec3(0.933f, 0.663f, 0.604f);
 
