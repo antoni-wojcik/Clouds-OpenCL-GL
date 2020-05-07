@@ -19,3 +19,5 @@ INCREASE PERFORMANCE:
 * ✓✓✓ Move density calculations to the OpenCL kernel to calculate density once: combine all channels (RGBA) to one channel (R) - will improve sampling at the fragment shader in OpenGL.
 * ✓✓✓ Precalculate light map in an OpenCL kernel, use channel (G) of the texture to store the data. The resulting 3D texture will only have 2 channels -> improve performance at sampling and precalculate data once instead of calculating it each frame.
 * ✓✓✓ Increase number of steps (after doing two previous points)
+
+![](/screenshots/screenshot10.png)
